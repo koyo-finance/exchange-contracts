@@ -1,3 +1,7 @@
 reports:
   exclude_paths:
     - contracts/testing/*.*
+
+networks:
+  live:
+    gas_limit: 10000000
