@@ -52,6 +52,13 @@ event CommitNewAdmin:
 event NewAdmin:
     admin: indexed(address)
 
+event CommitNewFeeCollector:
+    deadline: indexed(uint256)
+    fee_collector: indexed(address)
+
+event NewFeeCollector:
+    fee_collector: indexed(address)
+
 event CommitNewFee:
     deadline: indexed(uint256)
     fee: uint256
@@ -87,7 +94,7 @@ MAX_FEE: constant(uint256) = 5 * 10 ** 9
 MAX_A: constant(uint256) = 10 ** 6
 MAX_A_CHANGE: constant(uint256) = 10
 
-ADMIN_ACTIONS_DELAY: constant(uint256) = 3 * 86400
+ADMIN_ACTIONS_DELAY: constant(uint256) = 86400
 MIN_RAMP_TIME: constant(uint256) = 86400
 
 coins: public(address[N_COINS])
@@ -96,6 +103,7 @@ fee: public(uint256)  # fee * 1e10
 admin_fee: public(uint256)  # admin_fee * 1e10
 
 owner: public(address)
+fee_collector: public(address)
 token: CurveToken
 
 initial_A: public(uint256)
@@ -105,8 +113,10 @@ future_A_time: public(uint256)
 
 admin_actions_deadline: public(uint256)
 transfer_ownership_deadline: public(uint256)
+transfer_fee_collector_deadline: public(uint256)
 future_fee: public(uint256)
 future_admin_fee: public(uint256)
+future_fee_collector: public(address)
 future_owner: public(address)
 
 is_killed: bool
@@ -117,6 +127,7 @@ KILL_DEADLINE_DT: constant(uint256) = 7 * 4 * 6 * 86400
 @external
 def __init__(
     _owner: address,
+    _fee_collector: address,
     _coins: address[N_COINS],
     _pool_token: address,
     _A: uint256,
@@ -124,13 +135,14 @@ def __init__(
     _admin_fee: uint256
 ):
     """
-    @notice Contract constructor
-    @param _owner Contract owner address
-    @param _coins Addresses of ERC20 conracts of coins
-    @param _pool_token Address of the token representing LP share
-    @param _A Amplification coefficient multiplied by n * (n - 1)
-    @param _fee Fee to charge for exchanges
-    @param _admin_fee Admin fee
+    @notice Contract constructor.
+    @param _owner Contract owner address.
+    @param _fee_collector Address responsible for collecting fees.
+    @param _coins Addresses of ERC20 conracts of coins.
+    @param _pool_token Address of the token representing LP share.
+    @param _A Amplification coefficient multiplied by n * (n - 1).
+    @param _fee Fee to charge for exchanges.
+    @param _admin_fee Admin fee.
     """
 
     for i in range(N_COINS):
@@ -142,6 +154,7 @@ def __init__(
     self.fee = _fee
     self.admin_fee = _admin_fee
     self.owner = _owner
+    self.fee_collector = _fee_collector
     self.kill_deadline = block.timestamp + KILL_DEADLINE_DT
     self.token = CurveToken(_pool_token)
 
@@ -801,6 +814,38 @@ def revert_transfer_ownership():
     self.transfer_ownership_deadline = 0
 
 
+@external
+def commit_transfer_fee_collector(_fee_collector: address):
+    assert msg.sender == self.owner  # dev: only owner
+    assert self.transfer_fee_collector_deadline == 0  # dev: active transfer
+
+    _deadline: uint256 = block.timestamp + ADMIN_ACTIONS_DELAY
+    self.transfer_fee_collector_deadline = _deadline
+    self.future_fee_collector = _fee_collector
+
+    log CommitNewFeeCollector(_deadline, _fee_collector)
+
+
+@external
+def apply_transfer_fee_collector():
+    assert msg.sender == self.owner  # dev: only owner
+    assert block.timestamp >= self.transfer_fee_collector_deadline  # dev: insufficient time
+    assert self.transfer_fee_collector_deadline != 0  # dev: no active transfer
+
+    self.transfer_fee_collector_deadline = 0
+    _fee_collector: address = self.future_fee_collector
+    self.fee_collector = _fee_collector
+
+    log NewFeeCollector(_fee_collector)
+
+
+@external
+def revert_transfer_fee_collector():
+    assert msg.sender == self.owner  # dev: only owner
+
+    self.transfer_fee_collector_deadline = 0
+
+
 @view
 @external
 def admin_balances(i: uint256) -> uint256:
@@ -809,7 +854,7 @@ def admin_balances(i: uint256) -> uint256:
 
 @external
 def withdraw_admin_fees():
-    assert msg.sender == self.owner  # dev: only owner
+    assert msg.sender == self.fee_collector  # dev: only fee collector
 
     for i in range(N_COINS):
         c: address = self.coins[i]
