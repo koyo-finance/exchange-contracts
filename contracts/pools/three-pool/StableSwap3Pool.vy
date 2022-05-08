@@ -176,7 +176,6 @@ def _A() -> uint256:
             return A0 + (A1 - A0) * (block.timestamp - t0) / (t1 - t0)
         else:
             return A0 - (A0 - A1) * (block.timestamp - t0) / (t1 - t0)
-
     else:  # when t1 == 0 or block.timestamp >= t1
         return A1
 
