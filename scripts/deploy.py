@@ -51,7 +51,7 @@ def main():
     args.update(
         _coins=wrapped_coins,
         _underlying_coins=underlying_coins,
-        _pool_token=token.contract_address,
+        _pool_token=token,
         _owner=POOL_OWNER,
         _fee_collector=POOL_OWNER,
     )

@@ -13,7 +13,7 @@ const config: HardhatUserConfig = {
 		runOnCompile: true,
 		clear: true,
 		flat: true,
-		only: ['StableSwap3Pool', 'CurveTokenV3']
+		only: ['StableSwap3Pool', 'StableSwap4Pool', 'CurveTokenV3']
 	},
 	typechain: {
 		outDir: 'typechain',
