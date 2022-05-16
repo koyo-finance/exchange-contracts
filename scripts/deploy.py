@@ -1,8 +1,6 @@
 import json
 
 from brownie import accounts
-from brownie.network.gas.strategies import GasNowScalingStrategy
-from brownie.project import load as load_project
 from brownie.project.main import get_loaded_projects
 
 
